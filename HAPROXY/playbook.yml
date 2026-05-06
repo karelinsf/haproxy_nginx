@@ -1,0 +1,53 @@
+- name: install HAPROXY with 2 simple python servers
+  hosts: net
+  become: yes
+  tasks:
+  - name: Update apt packages
+    become: true
+    apt:
+      update_cache: yes
+  - name: install HAPROXY
+    apt:
+      name:
+        - haproxy
+      state: present
+  - name: Copy a file haproxy.cfg
+    ansible.builtin.copy:
+      src: files/haproxy.cfg
+      dest: /etc/haproxy/haproxy.cfg
+      remote_src: no
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: /http1
+      state: directory
+      mode: '0755'
+  - name: Create a file with content
+    copy:
+      dest: "/http1/index.html"
+      content: | 
+        Server 1 - Port: 8888
+      mode: '0644'
+  - name: Run simple python server 1
+    ansible.builtin.shell: python3 -m http.server 8888 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /http1/
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: /http2
+      state: directory
+      mode: '0755'
+  - name: Create a file with content
+    copy:
+      dest: "/http2/index.html"
+      content: | 
+        Server 2 - Port: 9999
+      mode: '0644'
+  - name: Run simple python server 2
+    ansible.builtin.shell: python3 -m http.server 9999 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /http2/
+  - name: retart and enable haproxy
+    systemd:
+      name: haproxy
+      state: reloaded
+      enabled: yes

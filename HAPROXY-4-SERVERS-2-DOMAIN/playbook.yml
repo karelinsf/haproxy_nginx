@@ -1,0 +1,66 @@
+- name: install HAPROXY with 4 simple python servers and 4 domain name
+  hosts: net
+  become: yes
+  tasks:
+  - name: Update apt packages
+    become: true
+    apt:
+      update_cache: yes
+  - name: install HAPROXY
+    apt:
+      name:
+        - haproxy
+      state: present
+  - name: Copy a file haproxy.cfg
+    ansible.builtin.copy:
+      src: files/haproxy.cfg
+      dest: /etc/haproxy/haproxy.cfg
+      remote_src: no
+
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: /example1_local
+      state: directory
+      mode: '0755'
+  - name: Create a file with content
+    copy:
+      dest: "/example1_local/index.html"
+      content: | 
+        example1.local
+      mode: '0644'
+  - name: Run simple python server 1
+    ansible.builtin.shell: python3 -m http.server 8888 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /example1_local/
+
+  - name: Run simple python server 2
+    ansible.builtin.shell: python3 -m http.server 8800 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /example1_local/
+
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: /example2_local
+      state: directory
+      mode: '0755'
+  - name: Create a file with content
+    copy:
+      dest: "/example2_local/index.html"
+      content: | 
+        example2.local
+      mode: '0644'
+  - name: Run simple python server 3
+    ansible.builtin.shell: python3 -m http.server 9999 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /example2_local/
+
+  - name: Run simple python server 4
+    ansible.builtin.shell: python3 -m http.server 9900 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /example2_local/
+
+  - name: retart and enable haproxy
+    systemd:
+      name: haproxy
+      state: reloaded
+      enabled: yes

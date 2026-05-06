@@ -1,0 +1,94 @@
+- name: install HAPROXY with 2 simple python servers and NGINX
+  hosts: net
+  become: yes
+  tasks:
+  - name: Update apt packages
+    become: true
+    apt:
+      update_cache: yes
+  - name: install HAPROXY and NGINX
+    apt:
+      name:
+        - haproxy
+        - nginx
+      state: present
+  - name: Copy a file haproxy.cfg
+    ansible.builtin.copy:
+      src: files/haproxy.cfg
+      dest: /etc/haproxy/haproxy.cfg
+      remote_src: no
+  - name: restart and enable haproxy
+    systemd:
+      name: haproxy
+      state: reloaded
+      enabled: yes
+
+  - name: Copy a file example-http.conf
+    ansible.builtin.copy:
+      src: files/example-http.conf
+      dest: /etc/nginx/conf.d/example-http.conf
+      remote_src: no
+  
+  - name: Copy a file nginx.conf
+    ansible.builtin.copy:
+      src: files/nginx.conf
+      dest: /etc/nginx/nginx.conf
+      remote_src: no
+  - name: restart and enable nginx
+    systemd:
+      name: nginx
+      state: reloaded
+      enabled: yes
+
+
+
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: /http1
+      state: directory
+      mode: '0755'
+  - name: Create a file with content
+    copy:
+      dest: "/http1/index.html"
+      content: | 
+        Server 1 - Port: 8888
+      mode: '0644'
+  - name: Run simple python server 1
+    ansible.builtin.shell: python3 -m http.server 8888 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /http1/
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: /http2
+      state: directory
+      mode: '0755'
+  - name: Create a file with content
+    copy:
+      dest: "/http2/index.html"
+      content: | 
+        Server 2 - Port: 9999
+      mode: '0644'
+  - name: Run simple python server 2
+    ansible.builtin.shell: python3 -m http.server 9999 --bind 0.0.0.0 >/dev/null 2>&1 &
+    args:
+      chdir: /http2/
+
+  - name: Create a file with content /http1/text.html
+    copy:
+      dest: "/http1/text.html"
+      content: | 
+        Server 1 - Port: 8888
+        Проверка балансировки nginx + haproxy
+      mode: '0644'
+  - name: Create a file with content /http2/text.html
+    copy:
+      dest: "/http2/text.html"
+      content: | 
+        Server 2 - Port: 9999
+        Проверка балансировки nginx + haproxy
+      mode: '0644'
+  - name: Copy a file 9may.jpg
+    ansible.builtin.copy:
+      src: files/9may.jpg
+      dest: /var/www/9may.jpg
+      remote_src: no

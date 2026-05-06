@@ -1,1 +1,173 @@
-# haproxy_nginx
+# Домашнее задание к занятию 2 «Кластеризация и балансировка нагрузки» - Карелин С.Ф.
+
+### Задание 1
+- Запустите два simple python сервера на своей виртуальной машине на разных портах
+- Установите и настройте HAProxy, воспользуйтесь материалами к лекции
+- Настройте балансировку Round-robin на 4 уровне.
+- На проверку направьте конфигурационный файл haproxy, скриншоты, где видно перенаправление запросов на разные серверы при обращении к HAProxy.
+
+### Решение 1
+
+Часть файла haproxy.cfg
+```yml
+listen stats
+        bind                    :888
+        mode                    http
+        stats                   enable
+        stats uri               /stats
+        stats refresh           5s
+        stats realm             Haproxy\ Statistics
+
+frontend example
+        mode http
+        bind :8088
+
+listen web_tcp
+        bind :1325
+        server s1 127.0.0.1:8888 check inter 3s
+        server s2 127.0.0.1:9999 check inter 3s
+```
+
+![Задание 1](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY/screen/round-robin.png)
+
+![Задание 1](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY/screen/haproxy-L4.png)
+
+### Задание 2
+- Запустите три simple python сервера на своей виртуальной машине на разных портах
+- Настройте балансировку Weighted Round Robin на 7 уровне, чтобы первый сервер имел вес 2, второй - 3, а третий - 4
+- HAproxy должен балансировать только тот http-трафик, который адресован домену example.local
+- На проверку направьте конфигурационный файл haproxy, скриншоты, где видно перенаправление запросов на разные серверы при обращении к HAProxy c использованием домена example.local и без него.
+
+### Решение 2
+
+Часть файла haproxy.cfg
+```yml
+listen stats
+        bind                    :888
+        mode                    http
+        stats                   enable
+        stats uri               /stats
+        stats refresh           5s
+        stats realm             Haproxy\ Statistics
+
+frontend example
+        mode http
+        bind :8088
+        acl ACL_example.local hdr(host) -i example.local
+        use_backend web_servers if ACL_example.local
+
+backend web_servers
+    	mode http
+        balance roundrobin
+        option httpchk
+        http-check send meth GET uri /index.html
+        server s1 127.0.0.1:8888 weight 2 check
+        server s2 127.0.0.1:9999 weight 3 check
+        server s3 127.0.0.1:7777 weight 4 check
+```
+
+![Задание 2](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY-WIGHTED/screen/haproxy-weighted-http.png)
+
+![Задание 2](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY-WIGHTED/screen/haproxy-http.png)
+
+### Задание 3*
+- Настройте связку HAProxy + Nginx как было показано на лекции.
+- Настройте Nginx так, чтобы файлы .jpg выдавались самим Nginx (предварительно разместите несколько тестовых картинок в директории /var/www/), а остальные запросы переадресовывались на HAProxy, который в свою очередь переадресовывал их на два Simple Python server.
+- На проверку направьте конфигурационные файлы nginx, HAProxy, скриншоты с запросами jpg картинок и других файлов на Simple Python Server, демонстрирующие корректную настройку.
+
+### Решение 3*
+
+Файл example-thhp.conf
+```yml
+server {
+   listen	80;
+
+   server_name	example-http.com;
+   
+   access_log	/var/log/nginx/example-http.com-acess.log;
+   error_log	/var/log/nginx/example-http.com-error.log;
+
+   location ~* \.(jpg|jpeg)$ {
+      root         /var/www;
+      access_log   off;
+      expires      3d;
+   }
+
+   location / {
+      proxy_pass	http://localhost:1325;
+   }
+}
+```
+
+Часть файла haproxy.cfg
+```yml
+listen stats
+        bind                    :888
+        mode                    http
+        stats                   enable
+        stats uri               /stats
+        stats refresh           5s
+        stats realm             Haproxy\ Statistics
+
+listen web_tcp
+        bind :1325
+        server s1 127.0.0.1:8888 check inter 3s
+        server s2 127.0.0.1:9999 check inter 3s
+```
+
+![Задание 3*](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY-NGINX/screen/haproxy-nginx.png)
+
+![Задание 3*](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY-NGINX/screen/file-jpg.png)
+
+### Задание 4*
+- Запустите 4 simple python сервера на разных портах.
+- Первые два сервера будут выдавать страницу index.html вашего сайта example1.local (в файле index.html напишите example1.local)
+- Вторые два сервера будут выдавать страницу index.html вашего сайта example2.local (в файле index.html напишите example2.local)
+- Настройте два бэкенда HAProxy
+- Настройте фронтенд HAProxy так, чтобы в зависимости от запрашиваемого сайта example1.local или example2.local запросы перенаправлялись на разные бэкенды HAProxy
+- На проверку направьте конфигурационный файл HAProxy, скриншоты, демонстрирующие запросы к разным фронтендам и ответам от разных бэкендов.
+
+### Решение 4*
+
+```yml
+listen stats
+        bind                    :888
+        mode                    http
+        stats                   enable
+        stats uri               /stats
+        stats refresh           5s
+        stats realm             Haproxy\ Statistics
+
+
+frontend example
+        mode http
+        bind :80
+
+        acl ACL_example1.local hdr(host) -i example1.local
+        use_backend web_servers1 if ACL_example1.local
+
+        acl ACL_example2.local hdr(host) -i example2.local
+        use_backend web_servers2 if ACL_example2.local
+
+
+backend web_servers1
+        mode http
+        balance roundrobin
+        option httpchk
+        http-check send meth GET uri /index.html
+        server s1 127.0.0.1:8888 check
+        server s2 127.0.0.1:8800 check
+
+backend web_servers2
+        mode http
+        balance roundrobin
+        option httpchk
+        http-check send meth GET uri /index.html
+        server s3 127.0.0.1:9999 check
+        server s4 127.0.0.1:9900 check
+
+```
+
+![Задание 4*](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY-4-SERVERS-2-DOMAIN/screen/haproxy-4-servers-2-domain.png)
+
+![Задание 4*](https://github.com/karelinsf/haproxy_nginx/blob/main/HAPROXY-4-SERVERS-2-DOMAIN/screen/haproxy-4-servers-2-domain-stats.png)
